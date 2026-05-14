@@ -1,0 +1,8 @@
+FROM nginx:alpine
+
+RUN apk add --no-cache openssl
+
+COPY prod-entrypoint.sh /docker-entrypoint-nginx.sh
+RUN chmod +x /docker-entrypoint-nginx.sh
+
+ENTRYPOINT ["/docker-entrypoint-nginx.sh"]

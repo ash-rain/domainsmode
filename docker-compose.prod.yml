@@ -1,0 +1,181 @@
+services:
+  mysql:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./docker/mysql/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-p${DB_PASSWORD}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+  api1:
+    build:
+      context: .
+      dockerfile: docker/api.Dockerfile
+    volumes:
+      - ./api:/var/www/html
+    environment:
+      DB_CONNECTION: mysql
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_DATABASE: network_1
+      DB_USERNAME: root
+      DB_PASSWORD: ${DB_PASSWORD}
+      APP_KEY: ${APP_KEY_API}
+      APP_ENV: production
+      APP_DEBUG: "false"
+      API_KEY: ${API1_KEY}
+      LOG_CHANNEL: stack
+      LOG_STACK: stderr
+    depends_on:
+      mysql:
+        condition: service_healthy
+    logging:
+      driver: loki
+      options:
+        loki-url: "http://localhost:3100/loki/api/v1/push"
+        loki-batch-size: "400"
+        labels: "service=api1"
+    restart: unless-stopped
+
+  api2:
+    build:
+      context: .
+      dockerfile: docker/api.Dockerfile
+    volumes:
+      - ./api:/var/www/html
+    environment:
+      DB_CONNECTION: mysql
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_DATABASE: network_2
+      DB_USERNAME: root
+      DB_PASSWORD: ${DB_PASSWORD}
+      APP_KEY: ${APP_KEY_API}
+      APP_ENV: production
+      APP_DEBUG: "false"
+      API_KEY: ${API2_KEY}
+      LOG_CHANNEL: stack
+      LOG_STACK: stderr
+    depends_on:
+      mysql:
+        condition: service_healthy
+    logging:
+      driver: loki
+      options:
+        loki-url: "http://localhost:3100/loki/api/v1/push"
+        loki-batch-size: "400"
+        labels: "service=api2"
+    restart: unless-stopped
+
+  nginx:
+    build:
+      context: ./docker/nginx
+      dockerfile: Dockerfile.prod
+    ports:
+      - "80:80"
+      - "443:443"
+      - "8001:8001"
+      - "8002:8002"
+      - "3001:3001"
+    environment:
+      DOMAIN: ${DOMAIN}
+    volumes:
+      - ./docker/nginx/prod/ui.conf.template:/etc/nginx/templates/ui.conf.template:ro
+      - ./docker/nginx/prod/api1.conf.template:/etc/nginx/templates/api1.conf.template:ro
+      - ./docker/nginx/prod/api2.conf.template:/etc/nginx/templates/api2.conf.template:ro
+      - ./docker/nginx/prod/grafana.conf.template:/etc/nginx/templates/grafana.conf.template:ro
+      - ./api:/var/www/api:ro
+      - ./ui:/var/www/ui:ro
+      - certbot_certs:/etc/letsencrypt
+      - certbot_webroot:/var/www/certbot
+    depends_on:
+      - api1
+      - api2
+      - ui
+      - grafana
+    logging:
+      driver: loki
+      options:
+        loki-url: "http://localhost:3100/loki/api/v1/push"
+        loki-batch-size: "400"
+        labels: "service=nginx"
+    restart: unless-stopped
+
+  certbot:
+    image: certbot/certbot
+    volumes:
+      - certbot_certs:/etc/letsencrypt
+      - certbot_webroot:/var/www/certbot
+    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew --webroot -w /var/www/certbot; sleep 12h & wait $${!}; done'"
+    depends_on:
+      - nginx
+    restart: unless-stopped
+
+  ui:
+    build:
+      context: .
+      dockerfile: docker/ui.Dockerfile
+    volumes:
+      - ./ui:/var/www/html
+    environment:
+      DB_CONNECTION: mysql
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_DATABASE: domainsmode_ui
+      DB_USERNAME: root
+      DB_PASSWORD: ${DB_PASSWORD}
+      APP_KEY: ${APP_KEY_UI}
+      APP_ENV: production
+      APP_DEBUG: "false"
+      APP_URL: https://${DOMAIN}
+      API1_URL: https://${DOMAIN}:8001
+      API2_URL: https://${DOMAIN}:8002
+      API1_KEY: ${API1_KEY}
+      API2_KEY: ${API2_KEY}
+      LOG_CHANNEL: stack
+      LOG_STACK: stderr
+    depends_on:
+      mysql:
+        condition: service_healthy
+    logging:
+      driver: loki
+      options:
+        loki-url: "http://localhost:3100/loki/api/v1/push"
+        loki-batch-size: "400"
+        labels: "service=ui"
+    restart: unless-stopped
+
+  loki:
+    image: grafana/loki:3.5.0
+    volumes:
+      - ./docker/loki/loki-config.yml:/etc/loki/local-config.yaml
+      - loki_data:/loki
+    command: -config.file=/etc/loki/local-config.yaml
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:11.6.0
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin}
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+      GF_SERVER_ROOT_URL: https://${DOMAIN}:3001
+    volumes:
+      - ./docker/grafana/provisioning:/etc/grafana/provisioning
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      - loki
+    restart: unless-stopped
+
+volumes:
+  mysql_data:
+  certbot_certs:
+  certbot_webroot:
+  loki_data:
+  grafana_data:

@@ -1,0 +1,14 @@
+<div>
+    <x-domains.table
+        :domains="$paginatedDomains"
+        :selected-domains="$selectedDomains"
+        :network-options="$networkOptions"
+        :loading="$loading"
+        :page="$page"
+        :per-page="$perPage"
+        :per-page-options="$perPageOptions"
+        :total-pages="$totalPages"
+        :page-links="$pageLinks"
+        :has-extra-filters="true"
+    />
+</div>
