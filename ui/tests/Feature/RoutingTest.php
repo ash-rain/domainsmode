@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
 class RoutingTest extends TestCase
@@ -39,6 +40,11 @@ class RoutingTest extends TestCase
     {
         $user = User::factory()->create();
 
+        Http::fake([
+            'http://localhost:8001/*' => Http::response([]),
+            'http://localhost:8002/*' => Http::response([]),
+        ]);
+
         $response = $this->actingAs($user)->get('/dashboard');
 
         $response->assertStatus(200);
@@ -47,6 +53,11 @@ class RoutingTest extends TestCase
     public function test_authenticated_user_can_access_bulk_create(): void
     {
         $user = User::factory()->create();
+
+        Http::fake([
+            'http://localhost:8001/*' => Http::response([]),
+            'http://localhost:8002/*' => Http::response([]),
+        ]);
 
         $response = $this->actingAs($user)->get('/domains/bulk-create');
 
