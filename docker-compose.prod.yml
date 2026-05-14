@@ -42,6 +42,8 @@ services:
         loki-url: "http://localhost:3100/loki/api/v1/push"
         loki-batch-size: "400"
         loki-timeout: "5s"
+        loki-retries: "3"
+        loki-max-backoff: "2s"
         labels: "service=api1"
     restart: unless-stopped
 
@@ -74,6 +76,8 @@ services:
         loki-url: "http://localhost:3100/loki/api/v1/push"
         loki-batch-size: "400"
         loki-timeout: "5s"
+        loki-retries: "3"
+        loki-max-backoff: "2s"
         labels: "service=api2"
     restart: unless-stopped
 
@@ -110,6 +114,8 @@ services:
         loki-url: "http://localhost:3100/loki/api/v1/push"
         loki-batch-size: "400"
         loki-timeout: "5s"
+        loki-retries: "3"
+        loki-max-backoff: "2s"
         labels: "service=nginx"
     restart: unless-stopped
 
@@ -156,11 +162,15 @@ services:
         loki-url: "http://localhost:3100/loki/api/v1/push"
         loki-batch-size: "400"
         loki-timeout: "5s"
+        loki-retries: "3"
+        loki-max-backoff: "2s"
         labels: "service=ui"
     restart: unless-stopped
 
   loki:
     image: grafana/loki:3.5.0
+    ports:
+      - "127.0.0.1:3100:3100"
     volumes:
       - ./docker/loki/loki-config.yml:/etc/loki/local-config.yaml
       - loki_data:/loki
