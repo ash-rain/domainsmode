@@ -567,7 +567,7 @@ The `DomainsList` component loads all domains from both APIs once on mount, then
 ### First-Time VPS Setup (`deploy.sh`)
 
 Run manually once:
-1. Clones repo to `/opt/domainsmode`
+1. Clones repo to `~/domainsmode`
 2. Copies `.env.prod.example` → `.env` (edit with real secrets)
 3. Starts all services (nginx boots with self-signed fallback)
 4. Runs Certbot to obtain Let's Encrypt certs for the domain
@@ -639,20 +639,20 @@ docker-compose exec ui   php artisan test
 
 ```bash
 # First-time setup
-scp .env.prod.example user@vps:/opt/domainsmode/.env  # then edit with real secrets
-ssh user@vps 'cd /opt/domainsmode && bash deploy.sh'
+scp .env.prod.example user@vps:~/domainsmode/.env  # then edit with real secrets
+ssh user@vps 'cd ~/domainsmode && bash deploy.sh'
 
 # Manual deploy (normally handled by GitHub Actions)
-ssh user@vps 'cd /opt/domainsmode && git pull && docker compose -f docker-compose.prod.yml up -d --build'
+ssh user@vps 'cd ~/domainsmode && git pull && docker compose -f docker-compose.prod.yml up -d --build'
 
 # View logs
-ssh user@vps 'cd /opt/domainsmode && docker compose -f docker-compose.prod.yml logs -f nginx'
+ssh user@vps 'cd ~/domainsmode && docker compose -f docker-compose.prod.yml logs -f nginx'
 
 # Renew certs manually
-ssh user@vps 'cd /opt/domainsmode && docker compose -f docker-compose.prod.yml run --rm certbot renew && docker compose -f docker-compose.prod.yml exec nginx nginx -s reload'
+ssh user@vps 'cd ~/domainsmode && docker compose -f docker-compose.prod.yml run --rm certbot renew && docker compose -f docker-compose.prod.yml exec nginx nginx -s reload'
 
 # MySQL shell (production)
-ssh user@vps 'cd /opt/domainsmode && docker compose -f docker-compose.prod.yml exec mysql mysql -u root -p'
+ssh user@vps 'cd ~/domainsmode && docker compose -f docker-compose.prod.yml exec mysql mysql -u root -p'
 ```
 
 ---

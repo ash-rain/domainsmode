@@ -3,7 +3,7 @@
 # Run once: ssh user@vps 'bash -s' < deploy.sh
 set -e
 
-APP_DIR=/opt/domainsmode
+APP_DIR="${HOME}/domainsmode"
 REPO_URL="${1:?Usage: deploy.sh <git-repo-url>}"
 
 echo "=== DomainsMode — First-time deploy ==="
@@ -25,7 +25,7 @@ if [ ! -f .env ]; then
     echo ""
     echo "============================================"
     echo "  .env created from template."
-    echo "  Edit /opt/domainsmode/.env with real"
+    echo "  Edit $APP_DIR/.env with real"
     echo "  secrets, then run this script again."
     echo "============================================"
     exit 1
