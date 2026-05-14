@@ -133,7 +133,7 @@
             <div class="rounded-xl border border-gray-200 p-5">
                 <div class="flex items-center gap-2 mb-3">
                     <span class="w-2 h-2 rounded-full bg-teal-500"></span>
-                    <span class="font-semibold text-gray-900">API 1  <span class="text-gray-400 font-normal">:8001</span></span>
+                    <span class="font-semibold text-gray-900">API 1  <span class="text-gray-400 font-normal">internal</span></span>
                 </div>
                 <ul class="space-y-1 text-gray-500">
                     <li>Laravel 12 JSON API</li>
@@ -147,7 +147,7 @@
             <div class="rounded-xl border border-gray-200 p-5">
                 <div class="flex items-center gap-2 mb-3">
                     <span class="w-2 h-2 rounded-full bg-orange-400"></span>
-                    <span class="font-semibold text-gray-900">API 2  <span class="text-gray-400 font-normal">:8002</span></span>
+                    <span class="font-semibold text-gray-900">API 2  <span class="text-gray-400 font-normal">internal</span></span>
                 </div>
                 <ul class="space-y-1 text-gray-500">
                     <li>Same codebase as API 1</li>
@@ -231,7 +231,7 @@ open https://localhost:8443</code></pre>
                         </div>
                         <div class="flex items-center justify-between bg-white border border-gray-200 rounded-lg px-4 py-2.5">
                             <span class="text-gray-600">{{ __('welcome.service_grafana') }}</span>
-                            <code class="text-xs text-purple-600">localhost:3001</code>
+                            <code class="text-xs text-purple-600">/grafana</code>
                         </div>
                     </div>
                 </div>

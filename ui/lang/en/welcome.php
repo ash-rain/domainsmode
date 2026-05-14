@@ -14,7 +14,7 @@ return [
 
     // ── Feature grid ─────────────────────────────────────────────────────────
     'feature_networks'           => 'Two independent networks',
-    'feature_networks_desc'      => 'API 1 and API 2 run as separate containers, each with their own MySQL database and Bearer token. The UI merges both into a single view.',
+    'feature_networks_desc'      => 'API 1 and API 2 run as separate containers, each with their own MySQL database and Bearer token. Internal-only — accessed by the UI over the Docker network, never exposed publicly.',
     'feature_bulk'               => 'Bulk content creation',
     'feature_bulk_desc'          => 'Select any number of domains across both networks, write title + body once, and submit. Results show per-domain — successes and 409 conflicts inline.',
     'feature_filter'             => 'Filter & paginate',

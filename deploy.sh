@@ -60,6 +60,5 @@ docker compose -f docker-compose.prod.yml exec -T ui php artisan view:cache
 echo ""
 echo "=== Deploy complete ==="
 echo "  UI:      https://$DOMAIN"
-echo "  API 1:   https://$DOMAIN:8001"
-echo "  API 2:   https://$DOMAIN:8002"
 echo "  Grafana: https://$DOMAIN/grafana"
+echo "  APIs:    internal only (http://nginx:8081, http://nginx:8082)"

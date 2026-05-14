@@ -46,11 +46,10 @@ Current state of the system as built. Use this as the reference when generating 
   Browser
     │
     │  https://domainsmode.nsh.one
-    │  https://domainsmode.nsh.one:8001
-    │  https://domainsmode.nsh.one:8002
     ▼
 ┌──────────────┐
 │  Cloudflare  │  DNS proxy, DDoS protection, edge caching
+│              │  SSL mode: Full (Strict) via page rule
 └──────┬───────┘
        │
        ▼
@@ -58,13 +57,14 @@ Current state of the system as built. Use this as the reference when generating 
 │  nginx  (docker/nginx/Dockerfile.prod)                          │
 │  TLS termination — Let's Encrypt via Certbot                    │
 │                                                                 │
-│  :443   SSL → ui:9000    (PHP-FPM)    domainsmode.nsh.one       │
-│  :8001  SSL → api1:9000  (PHP-FPM)    domainsmode.nsh.one:8001  │
-│  :8002  SSL → api2:9000  (PHP-FPM)    domainsmode.nsh.one:8002  │
+│  :443   SSL → ui:9000     (PHP-FPM)   domainsmode.nsh.one      │
+│  :443   SSL → grafana:3000 (proxy)    domainsmode.nsh.one/grafana│
+│  :8081  HTTP → api1:9000   (PHP-FPM)  internal only             │
+│  :8082  HTTP → api2:9000   (PHP-FPM)  internal only             │
 │  :80    ACME challenge + redirect → 443                         │
 │                                                                 │
-│  UI → API calls use public URLs (https://domainsmode.nsh.one:   │
-│  8001/8002) — full HTTPS between all services                   │
+│  UI → API calls use internal Docker URLs (http://nginx:8081/    │
+│  8082) — plain HTTP within Docker network, never exposed        │
 └────────────┬──────────────────────┬────────────────────────────┘
              │                      │
              ▼                      ▼
@@ -96,10 +96,10 @@ Current state of the system as built. Use this as the reference when generating 
 | mysql   | mysql:8 (image)             | 3307→3306       | —               | Imports network_1/2 SQL dumps     |
 | api1    | docker/api.Dockerfile       | —               | network_1       | API_KEY env var set               |
 | api2    | docker/api.Dockerfile       | —               | network_2       | API_KEY env var set (differs)     |
-| nginx   | docker/nginx/Dockerfile     | 8443, 8444, 8445 | —              | TLS termination, reverse proxy    |
+| nginx   | docker/nginx/Dockerfile     | 8443, 8444, 8445 | —              | TLS termination, reverse proxy, /grafana proxy |
 | ui      | docker/ui.Dockerfile        | —               | domainsmode_ui  | Node 20 for asset build           |
 | loki    | grafana/loki:3.5.0 (image)  | 3100            | —               | Log aggregation                   |
-| grafana | grafana/grafana:11.6.0 (image) | 3000         | —               | Log visualisation, pre-provisioned |
+| grafana | grafana/grafana:11.6.0 (image) | 3000         | —               | Log visualisation via /grafana path |
 
 ### Production (`docker-compose.prod.yml`)
 
@@ -108,7 +108,7 @@ Current state of the system as built. Use this as the reference when generating 
 | mysql   | mysql:8 (image)             | —                   | —               | Not exposed to host               |
 | api1    | docker/api.Dockerfile       | —                   | network_1       | API_KEY from .env                 |
 | api2    | docker/api.Dockerfile       | —                   | network_2       | API_KEY from .env                 |
-| nginx   | docker/nginx/Dockerfile.prod | 80, 443, 8001, 8002 | —              | Let's Encrypt certs               |
+| nginx   | docker/nginx/Dockerfile.prod | 80, 443             | —              | Let's Encrypt certs, /grafana proxy |
 | ui      | docker/ui.Dockerfile        | —                   | domainsmode_ui  | APP_URL=https://${DOMAIN}         |
 | certbot | certbot/certbot (image)     | —                   | —               | Renews certs every 12h            |
 
@@ -118,16 +118,24 @@ Both Dockerfiles set `ENTRYPOINT ["entrypoint.sh"]` so containers self-initialis
 
 **`docker/api-entrypoint.sh`**
 ```sh
+chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
+chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache
+# wait for MySQL...
 php artisan migrate --force
 exec php-fpm
 ```
 
 **`docker/ui-entrypoint.sh`**
 ```sh
+chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
+chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache
+# wait for MySQL...
 php artisan migrate --force
 php artisan db:seed --force
 exec php-fpm
 ```
+
+Volume mounts (`./api:/var/www/html`, `./ui:/var/www/html`) override Dockerfile permission changes, so the entrypoints fix ownership on every start.
 
 ### Default Credentials
 
@@ -417,8 +425,8 @@ DB_HOST=mysql
 DB_DATABASE=domainsmode_ui
 DB_USERNAME=root
 DB_PASSWORD=secret
-API1_URL=https://nginx:8444
-API2_URL=https://nginx:8445
+API1_URL=https://nginx:8444          # dev: HTTPS (self-signed)
+API2_URL=https://nginx:8445          # prod: http://nginx:8081 / :8082
 API1_KEY=<same as api1 API_KEY>
 API2_KEY=<same as api2 API_KEY>
 ```
@@ -477,9 +485,11 @@ docker plugin install grafana/loki-docker-driver:3.7.2-arm64 --alias loki --gran
 
 ### Grafana Access
 
-- URL: `https://localhost:3001`
+- **Dev:** `https://localhost:8443/grafana`
+- **Prod:** `https://<DOMAIN>/grafana`
 - Credentials: admin / admin (anonymous read access also enabled)
 - Pre-provisioned dashboard: **DomainsMode Logs** with service filter dropdown
+- Grafana serves from a sub-path via `GF_SERVER_ROOT_URL` and `GF_SERVER_SERVE_FROM_SUB_PATH=true`. Nginx proxies `/grafana/` to the Grafana container on port 3000.
 
 ### Provisioning
 
@@ -510,19 +520,19 @@ The two APIs share identical code. Differentiation is purely configuration: each
 
 **Production:** `docker/nginx/Dockerfile.prod` uses Let's Encrypt certificates issued by Certbot. On first deploy, the entrypoint generates a temporary self-signed fallback so nginx can start and serve the ACME challenge. `deploy.sh` then runs Certbot to obtain real certs and reloads nginx. A `certbot` sidecar container renews certs every 12 hours.
 
-Port strategy in production: `:443` for the UI, `:8001`/`:8002` for the APIs. Port `:80` serves only the ACME challenge and redirects to HTTPS. The UI calls APIs via their public HTTPS URLs (`https://${DOMAIN}:8001` / `:8002`) — full end-to-end TLS, no `withoutVerifying()` needed since the certs are valid.
+Port strategy in production: `:443` for the UI (behind Cloudflare). Port `:80` serves only the ACME challenge and redirects to HTTPS. APIs are **internal-only** — nginx exposes them on `:8081`/`:8082` inside the Docker network (plain HTTP, no SSL). The UI calls APIs via `http://nginx:8081` / `:8082` — no TLS overhead or `withoutVerifying()` needed for internal traffic. APIs are never exposed to the public internet.
 
-Security headers on all vhosts: `Strict-Transport-Security`, `X-Frame-Options`, `X-Content-Type-Options`. `fastcgi_param HTTPS on` ensures Laravel generates correct `https://` URLs and secure cookies.
+Security headers on the UI vhost: `Strict-Transport-Security`, `X-Frame-Options`, `X-Content-Type-Options`. `fastcgi_param HTTPS on` ensures Laravel generates correct `https://` URLs and secure cookies.
 
 ### Cloudflare integration
 
-Cloudflare proxies the domain (`domainsmode.nsh.one`) providing DDoS protection and edge caching. SSL mode should be set to **Full (Strict)** since the origin has valid Let's Encrypt certs. Cloudflare passes ACME challenge requests through to the origin, so HTTP-01 validation works behind the proxy.
+Cloudflare proxies the domain (`domainsmode.nsh.one`) providing DDoS protection and edge caching. SSL mode is **Full (Strict)** via a page rule (`domainsmode.nsh.one/*`) since the origin has valid Let's Encrypt certs. Cloudflare passes ACME challenge requests through to the origin, so HTTP-01 validation works behind the proxy. For initial cert issuance, temporarily grey-cloud the DNS record so Certbot can reach the origin directly.
 
-Firewall on the VPS should allow ports 80, 443, 8001, 8002 from Cloudflare IP ranges only (plus SSH).
+Firewall on the VPS should allow ports 80, 443 from Cloudflare IP ranges only (plus SSH). No other ports need to be exposed — APIs and Grafana are accessed via the main HTTPS vhost.
 
 ### No Sanctum on the APIs
 
-User identity is passed as `X-User-Id` header from the UI. A static Bearer token is sufficient for service-to-service auth. In production the APIs are publicly accessible but protected by Bearer tokens — treat API keys as secrets.
+User identity is passed as `X-User-Id` header from the UI. A static Bearer token is sufficient for service-to-service auth. In production the APIs are internal-only (Docker network, no public ports) and protected by Bearer tokens — treat API keys as secrets.
 
 ### Bulk create partial success
 
@@ -581,21 +591,22 @@ After initial setup, GitHub Actions handles all subsequent deploys via SSH.
 
 ### Development
 
-| Endpoint | URL                    |
-|----------|------------------------|
-| UI       | https://localhost:8443 |
-| API 1    | https://localhost:8444 |
-| API 2    | https://localhost:8445 |
-| Grafana  | https://localhost:3001  |
-| Loki     | http://localhost:3100  |
+| Endpoint | URL                            |
+|----------|--------------------------------|
+| UI       | https://localhost:8443         |
+| API 1    | https://localhost:8444         |
+| API 2    | https://localhost:8445         |
+| Grafana  | https://localhost:8443/grafana |
+| Loki     | http://localhost:3100          |
 
 ### Production
 
-| Endpoint | URL                                |
-|----------|------------------------------------|
-| UI       | https://domainsmode.nsh.one        |
-| API 1    | https://domainsmode.nsh.one:8001   |
-| API 2    | https://domainsmode.nsh.one:8002   |
+| Endpoint | URL                                    |
+|----------|----------------------------------------|
+| UI       | https://domainsmode.nsh.one            |
+| Grafana  | https://domainsmode.nsh.one/grafana    |
+| API 1    | http://nginx:8081 (internal only)      |
+| API 2    | http://nginx:8082 (internal only)      |
 
 ---
 
@@ -673,9 +684,9 @@ docker/grafana/provisioning/dashboards/json/domainsmode.json  Pre-built log dash
 docker-compose.prod.yml                Production compose (certbot, Let's Encrypt, no exposed MySQL)
 docker/nginx/Dockerfile.prod           Production nginx (openssl for fallback certs)
 docker/nginx/prod-entrypoint.sh        Generates self-signed fallback if no LE cert exists
-docker/nginx/prod/ui.conf              :443 SSL vhost for UI
-docker/nginx/prod/api1.conf            :8001 SSL vhost for API1
-docker/nginx/prod/api2.conf            :8002 SSL vhost for API2
+docker/nginx/prod/ui.conf.template     :443 SSL vhost for UI + /grafana proxy
+docker/nginx/prod/api1.conf.template   :8081 internal HTTP vhost for API1
+docker/nginx/prod/api2.conf.template   :8082 internal HTTP vhost for API2
 .env.prod.example                      Template for production secrets
 deploy.sh                              First-time VPS setup script
 ```

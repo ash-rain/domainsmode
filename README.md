@@ -6,7 +6,7 @@ Multi-network domain management system. Two API backends serve domain data from 
 
 ```
 ┌──────────────────────────────────────────────┐
-│  UI App (:8000)                              │
+│  UI App                                      │
 │  Laravel 12 + Breeze + Livewire              │
 │  DB: domainsmode_ui (users, sessions)        │
 │                                              │
@@ -15,10 +15,10 @@ Multi-network domain management system. Two API backends serve domain data from 
 │  │ (merged)     │  │ (multi-network)     │   │
 │  └──────────────┘  └─────────────────────┘   │
 └──────────┬───────────────────┬───────────────┘
-           │ HTTP              │ HTTP
+           │ HTTP (internal)   │ HTTP (internal)
            ▼                   ▼
 ┌─────────────────┐  ┌─────────────────┐
-│ API1 (:8001)    │  │ API2 (:8002)    │
+│ API1 (internal) │  │ API2 (internal) │
 │ DB: network_1   │  │ DB: network_2   │
 │                 │  │                 │
 │ GET  /api/domains         (list)    │
@@ -51,8 +51,8 @@ domainsmode/
 ├── docker/
 │   ├── api.Dockerfile
 │   ├── ui.Dockerfile
-│   ├── api-entrypoint.sh     # migrate → php-fpm
-│   ├── ui-entrypoint.sh      # migrate → seed → php-fpm
+│   ├── api-entrypoint.sh     # fix perms → migrate → php-fpm
+│   ├── ui-entrypoint.sh      # fix perms → migrate → seed → php-fpm
 │   ├── nginx/
 │   │   ├── Dockerfile
 │   │   ├── entrypoint.sh     # auto-generates self-signed SSL cert
@@ -153,7 +153,7 @@ docker-compose up -d --build
 # UI:      https://localhost:8443
 # API1:    https://localhost:8444
 # API2:    https://localhost:8445
-# Grafana: https://localhost:3001  (admin/admin)
+# Grafana: https://localhost:8443/grafana  (admin/admin)
 ```
 
 ### Default Credentials
@@ -220,13 +220,9 @@ See the Testing section in DESIGN.md for the full test inventory and patterns.
 
 ## SSL
 
-All services run over HTTPS via a shared nginx reverse proxy with a self-signed certificate.
+**Development:** All services run over HTTPS via a shared nginx reverse proxy with a self-signed certificate. The certificate is generated automatically on first startup by the nginx entrypoint script and persists in the `nginx_ssl` Docker volume (RSA 4096-bit, valid 365 days). Ports: UI on `:8443`, API1 on `:8444`, API2 on `:8445`. The UI's `NetworkApiClient` skips certificate verification for self-signed certs (`verify => false`). To regenerate: `docker volume rm domainsmode_nginx_ssl && docker-compose up -d --build nginx`.
 
-The certificate is generated automatically on first startup by the nginx entrypoint script. It persists across container restarts in the `nginx_ssl` Docker volume. The cert is valid for 365 days, covers `localhost` and `127.0.0.1`, and uses RSA 4096-bit.
-
-Ports: UI on `:8443`, API1 on `:8444`, API2 on `:8445`. Inter-service communication (UI → APIs) also goes through nginx over HTTPS. The UI's `NetworkApiClient` is configured to skip certificate verification for self-signed certs in development (`verify => false` on the HTTP client).
-
-To regenerate the certificate: `docker volume rm domainsmode_nginx_ssl && docker-compose up -d --build nginx`.
+**Production:** Let's Encrypt certificates via Certbot, served behind Cloudflare (Full Strict). Only port 443 is publicly exposed for the UI. APIs are internal-only (plain HTTP on Docker network ports `:8081`/`:8082`, never exposed to the internet). Grafana is served at `/grafana` on the main HTTPS vhost.
 
 ## Log Monitoring
 
@@ -243,7 +239,7 @@ docker plugin install grafana/loki-docker-driver:3.7.2-arm64 --alias loki --gran
 
 ### Access
 
-Grafana is available at `https://localhost:3001` (admin/admin). A pre-provisioned "DomainsMode Logs" dashboard shows all container logs with a service filter dropdown (ui, api1, api2, nginx).
+Grafana is available at `https://localhost:8443/grafana` in development and `https://<DOMAIN>/grafana` in production (admin/admin). A pre-provisioned "DomainsMode Logs" dashboard shows all container logs with a service filter dropdown (ui, api1, api2, nginx).
 
 ### What's Logged
 

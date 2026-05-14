@@ -88,8 +88,6 @@ services:
     ports:
       - "80:80"
       - "443:443"
-      - "8001:8001"
-      - "8002:8002"
     environment:
       DOMAIN: ${DOMAIN}
     volumes:
@@ -144,8 +142,8 @@ services:
       APP_ENV: production
       APP_DEBUG: "false"
       APP_URL: https://${DOMAIN}
-      API1_URL: https://${DOMAIN}:8001
-      API2_URL: https://${DOMAIN}:8002
+      API1_URL: http://nginx:8081
+      API2_URL: http://nginx:8082
       API1_KEY: ${API1_KEY}
       API2_KEY: ${API2_KEY}
       LOG_CHANNEL: stack

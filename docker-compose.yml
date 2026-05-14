@@ -80,12 +80,10 @@ services:
       - "8443:8443"   # UI HTTPS
       - "8444:8444"   # API1 HTTPS
       - "8445:8445"   # API2 HTTPS
-      - "3001:3001"   # Grafana HTTPS
     volumes:
       - ./docker/nginx/api1.conf:/etc/nginx/conf.d/api1.conf
       - ./docker/nginx/api2.conf:/etc/nginx/conf.d/api2.conf
       - ./docker/nginx/ui.conf:/etc/nginx/conf.d/ui.conf
-      - ./docker/nginx/grafana.conf:/etc/nginx/conf.d/grafana.conf
       - ./api:/var/www/api:ro
       - ./ui:/var/www/ui:ro
       - nginx_ssl:/etc/nginx/ssl
@@ -149,6 +147,8 @@ services:
       GF_SECURITY_ADMIN_PASSWORD: admin
       GF_AUTH_ANONYMOUS_ENABLED: "true"
       GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+      GF_SERVER_ROOT_URL: https://localhost:8443/grafana
+      GF_SERVER_SERVE_FROM_SUB_PATH: "true"
     volumes:
       - ./docker/grafana/provisioning:/etc/grafana/provisioning
       - grafana_data:/var/lib/grafana
