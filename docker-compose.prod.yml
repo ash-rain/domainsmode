@@ -35,11 +35,13 @@ services:
     depends_on:
       mysql:
         condition: service_healthy
+    stop_grace_period: 15s
     logging:
       driver: loki
       options:
         loki-url: "http://localhost:3100/loki/api/v1/push"
         loki-batch-size: "400"
+        loki-timeout: "5s"
         labels: "service=api1"
     restart: unless-stopped
 
@@ -65,11 +67,13 @@ services:
     depends_on:
       mysql:
         condition: service_healthy
+    stop_grace_period: 15s
     logging:
       driver: loki
       options:
         loki-url: "http://localhost:3100/loki/api/v1/push"
         loki-batch-size: "400"
+        loki-timeout: "5s"
         labels: "service=api2"
     restart: unless-stopped
 
@@ -99,11 +103,13 @@ services:
       - api2
       - ui
       - grafana
+    stop_grace_period: 15s
     logging:
       driver: loki
       options:
         loki-url: "http://localhost:3100/loki/api/v1/push"
         loki-batch-size: "400"
+        loki-timeout: "5s"
         labels: "service=nginx"
     restart: unless-stopped
 
@@ -143,11 +149,13 @@ services:
     depends_on:
       mysql:
         condition: service_healthy
+    stop_grace_period: 15s
     logging:
       driver: loki
       options:
         loki-url: "http://localhost:3100/loki/api/v1/push"
         loki-batch-size: "400"
+        loki-timeout: "5s"
         labels: "service=ui"
     restart: unless-stopped
 

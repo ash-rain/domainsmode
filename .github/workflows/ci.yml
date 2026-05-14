@@ -97,6 +97,9 @@ jobs:
           script: |
             cd ~/domainsmode
             git pull origin main
+            composer install --no-interaction --no-dev --optimize-autoloader --working-dir=api
+            composer install --no-interaction --no-dev --optimize-autoloader --working-dir=ui
+            cd ui && npm ci && npm run build && cd ..
             docker compose -f docker-compose.prod.yml up -d --build
             docker compose -f docker-compose.prod.yml exec -T ui php artisan config:cache
             docker compose -f docker-compose.prod.yml exec -T ui php artisan route:cache
