@@ -4,6 +4,7 @@ namespace Tests\Feature\Auth;
 
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Http;
 use Livewire\Volt\Volt;
 use Tests\TestCase;
 
@@ -57,6 +58,11 @@ class AuthenticationTest extends TestCase
     public function test_navigation_menu_can_be_rendered(): void
     {
         $user = User::factory()->create();
+
+        Http::fake([
+            'http://localhost:8001/*' => Http::response([]),
+            'http://localhost:8002/*' => Http::response([]),
+        ]);
 
         $this->actingAs($user);
 
