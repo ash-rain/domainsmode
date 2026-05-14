@@ -18,8 +18,11 @@ server {
         try_files $uri $uri/ /index.php?$query_string;
     }
 
+    resolver 127.0.0.11 valid=30s;
+
     location ~ \.php$ {
-        fastcgi_pass api2:9000;
+        set $upstream_api2 api2:9000;
+        fastcgi_pass $upstream_api2;
         fastcgi_index index.php;
         include fastcgi_params;
         fastcgi_param SCRIPT_FILENAME /var/www/html/public$fastcgi_script_name;
