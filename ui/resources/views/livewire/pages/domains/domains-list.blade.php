@@ -10,5 +10,6 @@
         :total-pages="$totalPages"
         :page-links="$pageLinks"
         :has-extra-filters="true"
+        :total="count($filteredDomains)"
     />
 </div>

@@ -12,6 +12,7 @@
     'totalPages'      => 1,
     'pageLinks'       => [],
     'hasExtraFilters' => false,
+    'total'           => null,   // total filtered count; falls back to count($domains)
 ])
 
 {{-- ── Search & Filters ─────────────────────────────────────────────── --}}
@@ -73,7 +74,7 @@
     {{-- ── Summary bar ───────────────────────────────────────────────── --}}
     <div class="mb-2 flex items-center justify-between text-sm text-gray-600">
         <span>
-            @php $total = count($domains); @endphp
+            @php $total = $total ?? count($domains); @endphp
             @if(! $compact)
                 @php
                     $start = min(($page - 1) * $perPage + 1, $total);
