@@ -34,24 +34,32 @@ fi
 # Source .env for variable access
 set -a; source .env; set +a
 
-echo "[2/5] Starting services..."
+echo "[2/6] Starting services..."
 docker compose -f docker-compose.prod.yml up -d --build
 
-echo "[3/5] Waiting for nginx to be ready..."
+echo "[3/6] Waiting for nginx to be ready..."
 sleep 5
 
-echo "[4/5] Obtaining Let's Encrypt certificate..."
-docker compose -f docker-compose.prod.yml run --rm certbot certonly \
+echo "[4/6] Obtaining Let's Encrypt certificate..."
+docker compose -f docker-compose.prod.yml run --rm --entrypoint "" certbot \
+    certbot certonly \
     --webroot -w /var/www/certbot \
     --email "$CERTBOT_EMAIL" \
     --agree-tos --no-eff-email \
+    --force-renewal \
     -d "$DOMAIN"
 
-echo "[5/5] Reloading nginx with real certificate..."
+echo "[5/6] Reloading nginx with real certificate..."
 docker compose -f docker-compose.prod.yml exec nginx nginx -s reload
+
+echo "[6/6] Caching Laravel config..."
+docker compose -f docker-compose.prod.yml exec -T ui php artisan config:cache
+docker compose -f docker-compose.prod.yml exec -T ui php artisan route:cache
+docker compose -f docker-compose.prod.yml exec -T ui php artisan view:cache
 
 echo ""
 echo "=== Deploy complete ==="
-echo "  UI:    https://$DOMAIN"
-echo "  API 1: https://$DOMAIN:8001"
-echo "  API 2: https://$DOMAIN:8002"
+echo "  UI:      https://$DOMAIN"
+echo "  API 1:   https://$DOMAIN:8001"
+echo "  API 2:   https://$DOMAIN:8002"
+echo "  Grafana: https://$DOMAIN/grafana"

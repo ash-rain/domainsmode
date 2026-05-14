@@ -90,14 +90,12 @@ services:
       - "443:443"
       - "8001:8001"
       - "8002:8002"
-      - "3001:3001"
     environment:
       DOMAIN: ${DOMAIN}
     volumes:
       - ./docker/nginx/prod/ui.conf.template:/etc/nginx/templates/ui.conf.template:ro
       - ./docker/nginx/prod/api1.conf.template:/etc/nginx/templates/api1.conf.template:ro
       - ./docker/nginx/prod/api2.conf.template:/etc/nginx/templates/api2.conf.template:ro
-      - ./docker/nginx/prod/grafana.conf.template:/etc/nginx/templates/grafana.conf.template:ro
       - ./api:/var/www/api:ro
       - ./ui:/var/www/ui:ro
       - certbot_certs:/etc/letsencrypt
@@ -183,7 +181,8 @@ services:
       GF_SECURITY_ADMIN_USER: admin
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin}
       GF_AUTH_ANONYMOUS_ENABLED: "false"
-      GF_SERVER_ROOT_URL: https://${DOMAIN}:3001
+      GF_SERVER_ROOT_URL: https://${DOMAIN}/grafana
+      GF_SERVER_SERVE_FROM_SUB_PATH: "true"
     volumes:
       - ./docker/grafana/provisioning:/etc/grafana/provisioning
       - grafana_data:/var/lib/grafana
